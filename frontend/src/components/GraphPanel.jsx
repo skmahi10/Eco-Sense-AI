@@ -49,6 +49,82 @@ const activeGlowPlugin = {
   },
 };
 
+const TREND_DAYS = 10;
+
+const metricConfig = [
+  {
+    key: "temperature",
+    label: "Temperature",
+    lineColor: "#fb923c",
+    fillColor: "rgba(251,146,60,0.08)",
+    cardBorder: "border-orange-400/15",
+    cardBg: "bg-orange-400/5",
+    cardText: "text-orange-300/80",
+    unit: "deg C",
+    axis: "y",
+    min: 0,
+    max: 45,
+  },
+  {
+    key: "water_quality",
+    label: "Water Quality",
+    lineColor: "#0ea5e9",
+    fillColor: "rgba(14,165,233,0.06)",
+    cardBorder: "border-cyan-400/15",
+    cardBg: "bg-cyan-400/5",
+    cardText: "text-cyan-300/80",
+    unit: "0-100",
+    axis: "y",
+    min: 0,
+    max: 100,
+  },
+  {
+    key: "ndvi",
+    label: "NDVI",
+    lineColor: "#22c55e",
+    fillColor: "rgba(34,197,94,0.06)",
+    cardBorder: "border-emerald-400/15",
+    cardBg: "bg-emerald-400/5",
+    cardText: "text-emerald-300/80",
+    unit: "proxy index",
+    axis: "y1",
+    min: 0,
+    max: 1,
+  },
+  {
+    key: "chlorophyll",
+    label: "Chlorophyll",
+    lineColor: "#a855f7",
+    fillColor: "rgba(168,85,247,0.06)",
+    cardBorder: "border-purple-400/15",
+    cardBg: "bg-purple-400/5",
+    cardText: "text-purple-300/80",
+    unit: "pigment index",
+    axis: "y",
+    min: 0,
+    max: 20,
+  },
+];
+
+const extendTrend = (values = [], targetDays, min, max) => {
+  const safeValues = values.map((value) => Number(value)).filter((value) => Number.isFinite(value));
+  if (safeValues.length === 0) return Array.from({ length: targetDays }, () => 0);
+
+  const result = [...safeValues.slice(0, targetDays)];
+  const avgStep =
+    safeValues.length > 1
+      ? safeValues.slice(1).reduce((sum, value, index) => sum + (value - safeValues[index]), 0) /
+        (safeValues.length - 1)
+      : 0;
+
+  while (result.length < targetDays) {
+    const nextValue = result[result.length - 1] + avgStep;
+    result.push(Math.min(max, Math.max(min, nextValue)));
+  }
+
+  return result.map((value) => Number(value.toFixed(2)));
+};
+
 export default function GraphPanel() {
   const [graphData, setGraphData] = useState(null);
   const [selectedRegion, setSelectedRegion] = useState("");
@@ -70,6 +146,19 @@ export default function GraphPanel() {
 
   const region = selectedRegion || regionList[0] || null;
   const series = region && graphData ? graphData[region] : null;
+  const trendSeries = useMemo(() => {
+    if (!series) return null;
+
+    return {
+      timestamps: Array.from({ length: TREND_DAYS }, (_, index) => `Day ${index + 1}`),
+      ...Object.fromEntries(
+        metricConfig.map((metric) => [
+          metric.key,
+          extendTrend(series[metric.key], TREND_DAYS, metric.min, metric.max),
+        ]),
+      ),
+    };
+  }, [series]);
 
   return (
     <div className="sentinel-card p-5">
@@ -77,7 +166,7 @@ export default function GraphPanel() {
         <div>
           <h2 className="sentinel-title">Environmental Trends</h2>
           <p className="mt-2 text-sm text-slate-400">
-            Temperature, water quality, NDVI, and chlorophyll movement by timestamp.
+            Clean 10-day trend projection from recent samples. NDVI uses the right axis for better readability.
           </p>
         </div>
 
@@ -97,90 +186,44 @@ export default function GraphPanel() {
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <div className="rounded-3xl border border-orange-400/15 bg-orange-400/5 px-4 py-3">
-          <p className="text-[10px] uppercase tracking-[0.25em] text-orange-300/80">Temp</p>
-          <p className="mt-2 text-2xl font-semibold text-white">{series?.temperature?.at(-1) ?? "--"}</p>
-          <p className="text-xs text-slate-400">deg C</p>
-        </div>
-        <div className="rounded-3xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3">
-          <p className="text-[10px] uppercase tracking-[0.25em] text-cyan-300/80">Water Quality</p>
-          <p className="mt-2 text-2xl font-semibold text-white">{series?.water_quality?.at(-1) ?? "--"}</p>
-          <p className="text-xs text-slate-400">0-100</p>
-        </div>
-        <div className="rounded-3xl border border-emerald-400/15 bg-emerald-400/5 px-4 py-3">
-          <p className="text-[10px] uppercase tracking-[0.25em] text-emerald-300/80">NDVI</p>
-          <p className="mt-2 text-2xl font-semibold text-white">{series?.ndvi?.at(-1) ?? "--"}</p>
-          <p className="text-xs text-slate-400">proxy index</p>
-        </div>
-        <div className="rounded-3xl border border-purple-400/15 bg-purple-400/5 px-4 py-3">
-          <p className="text-[10px] uppercase tracking-[0.25em] text-purple-300/80">Chlorophyll</p>
-          <p className="mt-2 text-2xl font-semibold text-white">{series?.chlorophyll?.at(-1) ?? "--"}</p>
-          <p className="text-xs text-slate-400">pigment index</p>
-        </div>
+        {metricConfig.map((metric) => (
+          <div
+            key={metric.key}
+            className={`rounded-3xl border ${metric.cardBorder} ${metric.cardBg} px-4 py-3`}
+          >
+            <p className={`text-[10px] uppercase tracking-[0.25em] ${metric.cardText}`}>
+              {metric.label}
+            </p>
+            <p className="mt-2 text-2xl font-semibold text-white">
+              {trendSeries?.[metric.key]?.at(-1) ?? "--"}
+            </p>
+            <p className="text-xs text-slate-400">Day 10 | {metric.unit}</p>
+          </div>
+        ))}
       </div>
 
       <div className="mt-5 h-[340px] rounded-[24px] border border-white/10 bg-gradient-to-b from-slate-950/60 to-slate-950/20 p-4">
-        {!series ? (
+        {!trendSeries ? (
           <p className="text-sm text-slate-500">Loading chart data...</p>
         ) : (
           <Line
             plugins={[activeGlowPlugin]}
             data={{
-              labels: series.timestamps,
-              datasets: [
-                {
-                  label: "Temperature",
-                  data: series.temperature || [],
-                  borderColor: "#fb923c",
-                  backgroundColor: "rgba(251,146,60,0.12)",
-                  borderWidth: 3,
-                  pointBackgroundColor: "#fb923c",
-                  pointBorderColor: "#0f172a",
-                  pointRadius: 4,
-                  pointHoverRadius: 9,
-                  fill: true,
-                  tension: 0.5,
-                },
-                {
-                  label: "Water Quality",
-                  data: series.water_quality || [],
-                  borderColor: "#0ea5e9",
-                  backgroundColor: "rgba(14,165,233,0.08)",
-                  borderWidth: 3,
-                  pointBackgroundColor: "#0ea5e9",
-                  pointBorderColor: "#0f172a",
-                  pointRadius: 4,
-                  pointHoverRadius: 9,
-                  fill: true,
-                  tension: 0.5,
-                },
-                {
-                  label: "NDVI",
-                  data: series.ndvi || [],
-                  borderColor: "#22c55e",
-                  backgroundColor: "rgba(34,197,94,0.1)",
-                  borderWidth: 3,
-                  pointBackgroundColor: "#22c55e",
-                  pointBorderColor: "#0f172a",
-                  pointRadius: 4,
-                  pointHoverRadius: 9,
-                  fill: true,
-                  tension: 0.5,
-                },
-                {
-                  label: "Chlorophyll",
-                  data: series.chlorophyll || series.ndvi || [],
-                  borderColor: "#a855f7",
-                  backgroundColor: "rgba(168,85,247,0.1)",
-                  borderWidth: 3,
-                  pointBackgroundColor: "#a855f7",
-                  pointBorderColor: "#0f172a",
-                  pointRadius: 4,
-                  pointHoverRadius: 9,
-                  fill: true,
-                  tension: 0.5,
-                },
-              ],
+              labels: trendSeries.timestamps,
+              datasets: metricConfig.map((metric) => ({
+                label: metric.label,
+                data: trendSeries[metric.key] || [],
+                borderColor: metric.lineColor,
+                backgroundColor: metric.fillColor,
+                borderWidth: 3,
+                pointBackgroundColor: metric.lineColor,
+                pointBorderColor: "#0f172a",
+                pointRadius: 0,
+                pointHoverRadius: 7,
+                yAxisID: metric.axis,
+                fill: false,
+                tension: 0.42,
+              })),
             }}
             options={{
               responsive: true,
@@ -189,7 +232,9 @@ export default function GraphPanel() {
               animation: { duration: 900, easing: "easeOutQuart" },
               plugins: {
                 legend: {
-                  labels: { color: "#cbd5e1", usePointStyle: true, boxWidth: 8, padding: 18 },
+                  position: "top",
+                  align: "end",
+                  labels: { color: "#cbd5e1", usePointStyle: true, boxWidth: 8, padding: 16 },
                 },
                 tooltip: {
                   backgroundColor: "rgba(15,23,42,0.97)",
@@ -202,21 +247,36 @@ export default function GraphPanel() {
                   displayColors: true,
                   boxPadding: 6,
                   callbacks: {
-                    title: (items) => `${region.replaceAll("_", " ")} | Sample ${items[0].label}`,
-                    footer: () => "1 point = 1 timestamped sample",
+                    title: (items) => `${region.replaceAll("_", " ")} | ${items[0].label}`,
+                    footer: () => "Projected using average step from recent samples",
                   },
                 },
               },
               scales: {
                 x: {
-                  grid: { color: "rgba(148,163,184,0.08)" },
-                  ticks: { color: "#94a3b8" },
+                  grid: { display: false },
+                  ticks: {
+                    color: "#94a3b8",
+                    maxRotation: 0,
+                    callback: (_, index) => (index % 2 === 0 ? `D${index + 1}` : ""),
+                  },
                   border: { color: "rgba(148,163,184,0.12)" },
                 },
                 y: {
+                  position: "left",
                   grid: { color: "rgba(148,163,184,0.08)" },
-                  ticks: { color: "#94a3b8" },
+                  ticks: { color: "#94a3b8", maxTicksLimit: 5 },
+                  suggestedMin: 0,
+                  suggestedMax: 100,
                   border: { color: "rgba(148,163,184,0.12)" },
+                },
+                y1: {
+                  position: "right",
+                  grid: { drawOnChartArea: false },
+                  ticks: { color: "#22c55e", maxTicksLimit: 5 },
+                  min: 0,
+                  max: 1,
+                  border: { color: "rgba(34,197,94,0.18)" },
                 },
               },
             }}

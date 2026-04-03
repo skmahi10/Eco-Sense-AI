@@ -2,12 +2,48 @@ import { useEffect, useState } from "react";
 import { fetchAllZones } from "../services/api";
 
 const metrics = [
-  { key: "temperature_latest", label: "Temp", unit: "C" },
-  { key: "water_quality_latest", label: "Water Quality", unit: "/100" },
-  { key: "humidity_latest", label: "Humidity", unit: "%" },
-  { key: "ndvi_latest", label: "NDVI", unit: "" },
-  { key: "wind_latest", label: "Wind", unit: "m/s" },
-  { key: "trend_rate_latest", label: "Trend Rate", unit: "" },
+  {
+    key: "temperature_latest",
+    label: "Temp",
+    unit: "C",
+    tone: "from-orange-500/10 to-slate-900/20 border-orange-400/15",
+    labelColor: "text-orange-200/80",
+  },
+  {
+    key: "water_quality_latest",
+    label: "Water Quality",
+    unit: "/100",
+    tone: "from-sky-500/10 to-slate-900/20 border-sky-400/15",
+    labelColor: "text-sky-200/80",
+  },
+  {
+    key: "humidity_latest",
+    label: "Humidity",
+    unit: "%",
+    tone: "from-indigo-500/10 to-slate-900/20 border-indigo-400/15",
+    labelColor: "text-indigo-200/80",
+  },
+  {
+    key: "ndvi_latest",
+    label: "NDVI",
+    unit: "",
+    tone: "from-emerald-500/10 to-slate-900/20 border-emerald-400/15",
+    labelColor: "text-emerald-200/80",
+  },
+  {
+    key: "wind_latest",
+    label: "Wind",
+    unit: "m/s",
+    tone: "from-cyan-500/10 to-slate-900/20 border-cyan-400/15",
+    labelColor: "text-cyan-200/80",
+  },
+  {
+    key: "trend_rate_latest",
+    label: "Trend Rate",
+    unit: "",
+    tone: "from-purple-500/10 to-slate-900/20 border-purple-400/15",
+    labelColor: "text-purple-200/80",
+  },
 ];
 
 const getBadgeClass = (level) => {
@@ -39,7 +75,7 @@ export default function RiskPanel() {
           zones.map((zone) => (
             <div
               key={zone.region}
-              className="rounded-[24px] border border-white/10 bg-slate-950/30 p-4"
+              className="rounded-[24px] border border-white/10 bg-gradient-to-br from-slate-900/55 via-slate-950/35 to-sky-950/10 p-4"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -67,9 +103,9 @@ export default function RiskPanel() {
                 {metrics.map((metric) => (
                   <div
                     key={metric.key}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3"
+                    className={`rounded-2xl border bg-gradient-to-br ${metric.tone} px-3 py-3`}
                   >
-                    <p className="text-[10px] uppercase tracking-[0.25em] text-slate-400">
+                    <p className={`text-[10px] uppercase tracking-[0.25em] ${metric.labelColor}`}>
                       {metric.label}
                     </p>
                     <p className="mt-2 text-lg font-semibold text-white">
@@ -82,7 +118,7 @@ export default function RiskPanel() {
                 ))}
               </div>
 
-              <p className="mt-4 rounded-2xl bg-white/5 p-3 text-xs leading-5 text-slate-300">
+              <p className="mt-4 rounded-2xl border border-white/5 bg-white/5 p-3 text-xs leading-5 text-slate-300">
                 {zone.explanation}
               </p>
             </div>
